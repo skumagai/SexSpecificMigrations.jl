@@ -1,6 +1,6 @@
 module SexSpecificMigrations
 
-using ForwardPopGenSims
+using ForwardPopGenSimulations
 
 export Female,
        Male,

@@ -1,5 +1,5 @@
-import ForwardPopGenSims
-const fpgs = ForwardPopGenSims
+import ForwardPopGenSimulations
+const fpgs = ForwardPopGenSimulations
 
 using SexSpecificMigrations
 const sm = SexSpecificMigrations
