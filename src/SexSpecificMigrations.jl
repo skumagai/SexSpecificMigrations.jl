@@ -570,7 +570,9 @@ function evolve!(
         sum([length(parpop[1]) for parpop in parpops])
     )
 
-    allgids = Array{Int}(sum(map(x -> length(gidstore[x.val]), loci)))
+    nnewids = sum(map(x -> length(gidstore[x.val]), loci))
+
+    gen = 0
 
     # main loop of a simulation
     for gen = core
@@ -634,20 +636,11 @@ function evolve!(
         if termon == minimum(ncoals)
             break
         end
-        gen % tclean == 0 && cleandb!(core, parpops, allgids)
+        gen % tclean == 0 && clean!(db(core), nnewids * gen + 1, nnewids * (gen + 1))
     end
-    cleandb!(core, parpops, allgids)
+    clean!(db(core), nnewids * gen + 1, nnewids * (gen + 1))
     parpops, core
 
-end
-
-function cleandb!(core, pops, allgids)
-    nl = get(pops[1][1], :number_of_loci)
-    idx = 1
-    for locus = 1:nl
-        idx = listgenes!(allgids, pops, locus, idx)
-    end
-    clean!(db(core), allgids)
 end
 
 function simulate(params::ModelParameters, burnin::Int, t::Int, termon::Int, tclean::Int)
