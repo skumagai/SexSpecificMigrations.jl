@@ -2,6 +2,7 @@ module SexSpecificMigrations
 
 using ForwardPopGenSimulations
 
+# reexport from ForwardPopGenSimulations as users use these to specify model parameters.
 export Female,
        Male,
        Mother,
@@ -14,9 +15,9 @@ export Female,
        YChromosome,
        Mitochondrion,
 
-       CoreData,
+       BasicData
 
-       ModelParameters,
+export ModelParameters,
        LocusList,
        PopulationSizes,
        MutationRates,
@@ -28,43 +29,9 @@ export Female,
 
        simulate
 
-type CoreData
-    db::GeneDB
-    state::Int
-    t::Int
-    tmax::Int
-    CoreData() = new(GeneDB(), 0, 0)
-end
-nextstate!(d::CoreData) = d.state += 1
-settmax!(d::CoreData, tmax) = d.tmax = tmax
-db(d::CoreData) = d.db
-time(d::CoreData) = d.t
-Base.start(d::CoreData) = d.t = 0
-Base.next(d::CoreData, state) = (d.t = state + 1; (d.t, d.t))
-Base.done(d::CoreData, state) = state == d.tmax
-
-immutable ChromosomeType
-    val::Int
-end
-const Autosome = ChromosomeType(1)
-const XChromosome = ChromosomeType(2)
-const YChromosome = ChromosomeType(3)
-const Mitochondrion = ChromosomeType(4)
 
 immutable ForeignTrait end
 immutable Migrant end
-
-immutable SexType
-    val::Int
-end
-const Female = SexType(1)
-const Male = SexType(2)
-# Mother, Father, Daughter, and Son are alias to Female and Male. These aliases are
-# used in parameter specification to reduce confusion.
-const Mother = SexType(1)
-const Father = SexType(2)
-const Daughter = SexType(1)
-const Son = SexType(2)
 
 immutable LocusList
     val::Array{Tuple{ChromosomeType, Int}, 1}
@@ -185,7 +152,7 @@ immutable SexSpecificParameters
 end
 
 function SexSpecificParameters(p::ModelParameters, deme::Integer, sex::SexType)
-    sexidx = sex.val
+    sexidx = value(sex)
 
     chrs = p.chromosomes
     recrates = vcat([[i == 1 ? 0.5 : recrate for i in 1:locus[2]] for locus in chrs]...)
@@ -224,7 +191,7 @@ function SexSpecificPopulation(params::ModelParameters, deme::Int, sex::SexType)
 end
 
 get(p::SexSpecificPopulation, s::Symbol) = getfield(p.params, s)
-get(p::SexSpecificPopulation, s::Symbol, sex::SexType) = getfield(p.params, s)[sex.val]
+get(p::SexSpecificPopulation, s::Symbol, sex::SexType) = getfield(p.params, s)[value(sex)]
 get(p::SexSpecificPopulation, s::Symbol, i::Integer) = getfield(p.params, s)[i]
 Base.setindex!(p::SexSpecificPopulation, val::Int, ::Type{Val{:trait}}, i::Integer) = p.trait[i] = val
 Base.getindex(p::SexSpecificPopulation, ::Type{Val{:trait}}, i::Integer) = p.trait[i]
@@ -274,7 +241,7 @@ function setinitialgenotype1!(core, p, i, j)
 end
 
 function setinitialgenotype!(
-    core::CoreData,
+    core::BasicData,
     p::SexSpecificPopulation,
     ind,
     locus,
@@ -285,7 +252,7 @@ function setinitialgenotype!(
 end
 
 function setinitialgenotype!(
-    core::CoreData,
+    core::BasicData,
     p::SexSpecificPopulation,
     ind,
     locus,
@@ -296,7 +263,7 @@ function setinitialgenotype!(
 end
 
 function setinitialgenotype!(
-    core::CoreData,
+    core::BasicData,
     p::SexSpecificPopulation,
     ind,
     locus,
@@ -307,7 +274,7 @@ function setinitialgenotype!(
 end
 
 function setinitialgenotype!(
-    core::CoreData,
+    core::BasicData,
     p::SexSpecificPopulation,
     ind,
     locus,
@@ -318,7 +285,7 @@ function setinitialgenotype!(
 end
 
 function setinitialgenotype!(
-    core::CoreData,
+    core::BasicData,
     p::SexSpecificPopulation,
     ind,
     locus,
@@ -329,7 +296,7 @@ function setinitialgenotype!(
 end
 
 function setinitialgenotype!(
-    core::CoreData,
+    core::BasicData,
     p::SexSpecificPopulation,
     ind,
     locus,
@@ -340,7 +307,7 @@ function setinitialgenotype!(
 end
 
 function setinitialgenotype!(
-    core::CoreData,
+    core::BasicData,
     p::SexSpecificPopulation,
     ind,
     locus,
@@ -366,7 +333,7 @@ end
 
 function reinitialize!(oldcore, pops)
     oldgdb = db(oldcore)
-    core = CoreData()
+    core = BasicData()
     gdb = db(core)
     # Preemptively map 0 to 0 as this value has a special meaning.
     smap = Dict{Int, Int}(0 => 0)
@@ -470,7 +437,7 @@ function reproduce!(core, parpop, ppos, chpop, cpos)
     for (sexpop, pos) in zip(parpop, ppos)
         psex = get(sexpop, :sex)
         nl = get(sexpop, :number_of_loci)
-        cchr = psex.val
+        cchr = value(psex)
         chr = rand(1:2)
         for i = 1:nl
             chrtype = get(sexpop, :type_of_locus, i)
@@ -532,7 +499,7 @@ function setgene!(core, ::Type{Val{YChromosome}}, ::Type{Val{Male}}, ::Type{Val{
 end
 
 function evolve!(
-    core::CoreData,
+    core::BasicData,
     parpops::Array{Population, 1},
     termon::Int,
     tclean::Int)
@@ -570,7 +537,7 @@ function evolve!(
         sum([length(parpop[1]) for parpop in parpops])
     )
 
-    nnewids = sum(map(x -> length(gidstore[x.val]), loci))
+    nnewids = sum(map(x -> length(gidstore[value(x)]), loci))
 
     gen = 0
 
@@ -624,7 +591,7 @@ function evolve!(
         parpops, chpops = chpops, parpops
 
         for (idx, locus) in enumerate(loci)
-            lpos = locus.val
+            lpos = value(locus)
             listgenes!(gidstore[lpos], parpops, idx)
             anc = mrca(db(core), gidstore[lpos])
             if anc.epoch > lastcoals[idx]
@@ -644,7 +611,7 @@ function evolve!(
 end
 
 function simulate(params::ModelParameters, burnin::Int, t::Int, termon::Int, tclean::Int)
-    core = CoreData()
+    core = BasicData()
     pops = createpopulations(params)
 
     initialize!(core, pops)

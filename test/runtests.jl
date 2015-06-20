@@ -1,24 +1,10 @@
-import ForwardPopGenSimulations
-const fpgs = ForwardPopGenSimulations
-
 using SexSpecificMigrations
-const sm = SexSpecificMigrations
+using ForwardPopGenSimulations
+
 using Base.Test
 
-core = CoreData()
-for i = 1:10
-    @test sm.nextstate!(core) == i
-    @test core.state == i
-end
-sm.settmax!(core, 10)
-@test core.tmax == 10
-gdb = sm.db(core)
-@test isa(gdb, fpgs.GeneDB)
-@test sm.time(core) == 0
-for (i, t) in enumerate(core)
-    @test i == t
-end
-@test sm.time(core) == 10
+const fpgs = ForwardPopGenSimulations
+const sm = SexSpecificMigrations
 
 chrs = LocusList(
     [(Autosome, 2),
@@ -130,7 +116,7 @@ for deme in eachindex(pops)
 end
 
 pops = sm.createpopulations(params)
-core = sm.CoreData()
+core = sm.BasicData()
 @test core.state == 0
 sm.initialize!(core, pops)
 ans = (
@@ -201,7 +187,7 @@ chrs = LocusList(
      (Mitochondrion, 1)]
 )
 
-core = CoreData()
+core = BasicData()
 core.state = 1
 core.t = 1
 root = fpgs.GeneRecord(1, 1)
@@ -223,7 +209,7 @@ sm.mutate!(core, 2, 1.0)
 @test core.db[3].parent == core.db[2]
 
 function init(params)
-    core = CoreData()
+    core = BasicData()
     sm.settmax!(core, 10)
     parpops = sm.createpopulations(params)
     sm.initialize!(core, parpops)
