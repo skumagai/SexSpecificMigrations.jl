@@ -138,14 +138,13 @@ for i = 1:2, j = 1:2
     end
 end
 for key in sort(collect(keys(core.db)))
+    key == 0 && continue
     core.db[key + 100] = core.db[key]
-    if core.db[key].parent.id == key
-        core.db[key + 100].parent = core.db[key + 100]
-    else
+    if core.db[key].parent !== UndefGene
         core.db[key + 100].parent = core.db[core.db[key].parent.id + 100]
     end
 end
-for key in filter(x -> x < 100, keys(core.db))
+for key in filter(x -> 0 < x < 100, keys(core.db))
     delete!(core.db, key)
 end
 core = sm.reinitialize!(core, pops)
