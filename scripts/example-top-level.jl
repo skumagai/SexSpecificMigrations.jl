@@ -1,6 +1,10 @@
 using SexSpecificMigrations
 using JLD
 
+sttime = Dates.format(now(), "yyyy-m-d-H-M")
+hostname = chomp(readall(`hostname`))
+filename = "result.$hostname.$sttime.jld"
+
 # One-locus per chromosomal type.
 chrs = LocusList((Autosome, 1), (XChromosome, 1), (YChromosome, 1), (Mitochondrion, 1))
 popsize = PopulationSizes(1=>(Female=>250, Male=>250), 2=>(Female=>250, Male=>250))
@@ -21,5 +25,5 @@ params = ModelParameters(chrs, popsize, mutrates, recrates, propm, fitm, fitt, t
 
 pops, genes, t = simulate(params, 5000, 30000, 3, 100)
 
-@save "values.jld" pops genes t
+@save filename pops genes t
 
