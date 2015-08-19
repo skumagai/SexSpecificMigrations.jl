@@ -618,7 +618,7 @@ function evolve!(
 
 end
 
-function simulate(params::ModelParameters, burnin::Int, t::Int, termon::Int, tclean::Int)
+function simulate(params::ModelParameters, burnin::Int, t::Int, termon::Int, tclean::Int, rep=1)
     info("process started on ", now(), ".")
     core = BasicData()
     pops = createpopulations(params)
@@ -627,11 +627,17 @@ function simulate(params::ModelParameters, burnin::Int, t::Int, termon::Int, tcl
     settmax!(core, burnin)
     pops, core  = evolve!(core, pops, -1, tclean)
 
-    core = reinitialize!(core, pops)
-    settmax!(core, t)
-    pops, core = evolve!(core, pops, termon, tclean)
+    datastore = Array{Tuple{typeof(pops), typeof(db(core)), typeof(time(core))}}(0)
+
+    for i = 1:rep
+        pops = deepcopy(pops) # clone population that to avoid overwrite.
+        core = reinitialize!(core, pops)
+        settmax!(core, t)
+        pops, core = evolve!(core, pops, termon, tclean)
+        push!(datastore, (pops, db(core), time(core)))
+    end
     info("process terminated on ", now(), ".")
-    pops, db(core), time(core)
+    datastore
 end
 
 end # module
