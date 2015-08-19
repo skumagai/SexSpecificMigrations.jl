@@ -504,6 +504,8 @@ function evolve!(
     termon::Int,
     tclean::Int)
 
+    info("evolution started on ", now(), ".")
+
     ndemes = length(parpops) # basically fixed at 2
     nloci = get(parpops[1][1], :number_of_loci)
     loci = get(parpops[1][1], :type_of_locus)
@@ -597,7 +599,7 @@ function evolve!(
             if anc.epoch > lastcoals[idx]
                 ncoals[idx] += 1
                 lastcoals[idx] = gen
-                info("turn over ", ncoals[lpos], " of locus ", locus, " on generation ", gen)
+                info("turn over ", ncoals[lpos], " of locus ", idx, " on generation ", gen)
             end
         end
         if termon == minimum(ncoals)
@@ -606,11 +608,18 @@ function evolve!(
         gen % tclean == 0 && clean!(db(core), nnewids * gen + 1, nnewids * (gen + 1))
     end
     clean!(db(core), nnewids * gen + 1, nnewids * (gen + 1))
+
+    if termon == minimum(ncoals)
+        info("evolution terminated by number of turn-overs in gen ", gen, " on ", now(), ".")
+    else
+        info("evolution terminated by reaching max gen", gen, " on ", now(), ".")
+    end
     parpops, core
 
 end
 
 function simulate(params::ModelParameters, burnin::Int, t::Int, termon::Int, tclean::Int)
+    info("process started on ", now(), ".")
     core = BasicData()
     pops = createpopulations(params)
 
@@ -621,6 +630,7 @@ function simulate(params::ModelParameters, burnin::Int, t::Int, termon::Int, tcl
     core = reinitialize!(core, pops)
     settmax!(core, t)
     pops, core = evolve!(core, pops, termon, tclean)
+    info("process terminated on ", now(), ".")
     pops, db(core), time(core)
 end
 
