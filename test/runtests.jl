@@ -154,19 +154,60 @@ core = sm.reinitialize!(core, pops)
 @test pops[2][1].data == ans[2][1]
 @test pops[2][2].data == ans[2][2]
 
-chrvec = Array{Int}(10000)
-for i in eachindex(chrvec)
-    chrvec[i] = sm.selectchr(1, 0.0)
+nreps = 10000
+rates = (0.0, 0.5, 1.0)
+sexes = (Female, Male)
+chrvec = Array{Int}(nreps)
+statevec = Array{Bool}(nreps)
+for psex in sexes, csex in sexes, rate in rates
+    for i = eachindex(chrvec)
+        chr, state = sm.selectchr(1, rate, Val{Autosome}, Val{psex}, Val{csex})
+        chrvec[i] = chr
+        statevec[i] = state
+    end
+    @test rate - 0.05 < countnz(chrvec[:] .== 2) / nreps < rate + 0.05
+    @test all(statevec[:] .== true) == true
 end
-@test all(chrvec[:] .== 1) == true
-for i in eachindex(chrvec)
-    chrvec[i] = sm.selectchr(1, 1.0)
+
+for csex in sexes, rate in rates
+    for i = eachindex(chrvec)
+        chr, state = sm.selectchr(1, rate, Val{XChromosome}, Val{Female}, Val{csex})
+        chrvec[i] = chr
+        statevec[i] = state
+    end
+    @test rate - 0.05 < countnz(chrvec[:] .== 2) / nreps < rate + 0.05
+    @test all(statevec[:] .== true) == true
+
+    chr, state = sm.selectchr(1, rate, Val{XChromosome}, Val{Male}, Val{csex})
+    if csex == Female
+        @test chr == 1
+        @test state == true
+    else
+        @test chr == 1
+        @test state == false
+    end
 end
-@test all(chrvec[:] .== 2) == true
-for i in eachindex(chrvec)
-    chrvec[i] = sm.selectchr(1, 0.5)
+
+
+for psex in sexes, csex in sexes, rate in rates
+    chr, state = sm.selectchr(1, rate, Val{YChromosome}, Val{psex}, Val{csex})
+    if psex == Male && csex == Male
+        @test chr == 2
+        @test state == true
+    else
+        @test chr == 1
+        @test state == false
+    end
+
+    chr, state = sm.selectchr(1, rate, Val{Mitochondrion}, Val{psex}, Val{csex})
+    if psex == Female && csex == Female
+        @test chr == 1
+        @test state == true
+    else
+        @test chr == 1
+        @test state == false
+    end
 end
-@test 0.45 < countnz(chrvec[:] .== 1) / 10000 < 0.55
 
 params2 = ModelParameters(
     chrs,
@@ -193,19 +234,19 @@ root = fpgs.GeneRecord(1, 1)
 root.id = 1
 insert!(core.db, root)
 
-sm.mutate!(core, 1, 0.0)
-@test core.state == 1
-@test haskey(core.db, 2) == true
-@test core.db[2].state == 1
-@test core.db[2].epoch == 1
-@test core.db[2].event == fpgs.Transmission()
-core.t = 2
-sm.mutate!(core, 2, 1.0)
-@test core.state == 2
-@test core.db[3].state == 2
-@test core.db[3].epoch == 2
-@test core.db[3].event == fpgs.Mutation()
-@test core.db[3].parent == core.db[2]
+# sm.mutate!(core, 1, 0.0, 1, 1)
+# @test core.state == 1
+# @test haskey(core.db, 2) == true
+# @test core.db[2].state == 1
+# @test core.db[2].epoch == 1
+# @test core.db[2].event == fpgs.Transmission()
+# core.t = 2
+# sm.mutate!(core, 2, 1.0, 1, 1)
+# @test core.state == 2
+# @test core.db[3].state == 2
+# @test core.db[3].epoch == 2
+# @test core.db[3].event == fpgs.Mutation()
+# @test core.db[3].parent == core.db[2]
 
 function init(params)
     core = BasicData()

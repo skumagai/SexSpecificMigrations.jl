@@ -433,70 +433,48 @@ end
 function reproduce!(core, parpop, ppos, chpop, cpos)
     # Maternally derived genes are always stored on the first row, whereas
     # paternally derived genes are on the second row.
+    # This function deals with a single offspring, not the entire population of offspring.
     csex = get(chpop, :sex)
+    cdeme = get(chpop, :deme)
+    pdeme = get(parpop[1], :deme) # both parents are from the same deme.
     for (sexpop, pos) in zip(parpop, ppos)
         psex = get(sexpop, :sex)
         nl = get(sexpop, :number_of_loci)
         cchr = value(psex)
         chr = rand(1:2)
+        mut = get(sexpop, :mutation_rate)
         for i = 1:nl
             chrtype = get(sexpop, :type_of_locus, i)
-            geneid, chr = setgene!(core, Val{chrtype}, Val{psex}, Val{csex}, sexpop, pos, i, chr)
-            chpop[cchr, toposition(chpop, cpos, i)] = geneid
+            rrate = get(sexpop, :recombination_rate, i)
+
+            chr, passgene = selectchr(chr, rrate, Val{chrtype}, Val{psex}, Val{csex})
+            passgene || continue
+
+            pos = toposition(chpop, cpos, i)
+            if rand() < mut
+                state = nextstate!(core)
+            else
+                state = -1
+            end
+            pgene = sexpop[chr, pos]
+            geneid = transmit!(db(core), time(core), pgene, state=state, src=pdeme, dest=cdeme)
+            chpop[cchr, pos] = geneid
         end
     end
 end
 
-selectchr(chr, rate) = rand() < rate ? 3 - chr : chr
+selectchr(chr, rate, ::Type{Val{Autosome}}, psex, csex) = pickchr(chr, rate), true
+selectchr(chr, rate, ::Type{Val{XChromosome}}, ::Type{Val{Female}}, csex) =
+    pickchr(chr, rate), true
+selectchr(chr, rate, ::Type{Val{XChromosome}}, ::Type{Val{Male}}, ::Type{Val{Female}}) = 1, true
+selectchr(chr, rate, ::Type{Val{YChromosome}}, ::Type{Val{Male}}, ::Type{Val{Male}}) = 2, true
+selectchr(chr, rate, ::Type{Val{Mitochondrion}}, ::Type{Val{Female}}, ::Type{Val{Female}}) =
+    1, true
+selectchr(chr, rate, chrtype, psex, csex) = chr, false
 
-function mutate!(core, id, mut)
-    if rand() < mut
-        transmit!(db(core), time(core), nextstate!(core), id)
-    else
-        transmit!(db(core), time(core), id)
-    end
-end
+pickchr(chr, rate) = rand() < rate ? 3 - chr : chr
 
 toposition(pop, ind, locus) = get(pop, :number_of_loci) * (ind - 1) + locus
-
-setgene!(core, chr, psex, csex, pop, ind, locus, prevchr) = 0, prevchr
-
-function setgene!(core, ::Type{Val{Autosome}}, psex, csex,
-    pop, ind, locus, prevchr)
-
-    pos = toposition(pop, ind, locus)
-    chr = selectchr(prevchr, get(pop, :recombination_rate, locus))
-    mutate!(core, pop[chr, pos], get(pop, :mutation_rate)), chr
-end
-
-function setgene!(core, ::Type{Val{XChromosome}}, ::Type{Val{Female}}, csex,
-    pop, ind, locus, prevchr)
-
-    pos = toposition(pop, ind, locus)
-    chr = selectchr(prevchr, get(pop, :recombination_rate, locus))
-    mutate!(core, pop[chr, pos], get(pop, :mutation_rate)), chr
-end
-
-function setgene!(core, ::Type{Val{Mitochondrion}}, ::Type{Val{Female}}, ::Type{Val{Female}},
-    pop, ind, locus, prevchr)
-
-    pos = toposition(pop, ind, locus)
-    mutate!(core, pop[1, pos], get(pop, :mutation_rate)), 1
-end
-
-function setgene!(core, ::Type{Val{XChromosome}}, ::Type{Val{Male}}, ::Type{Val{Female}},
-    pop, ind, locus, prevchr)
-
-    pos = toposition(pop, ind, locus)
-    mutate!(core, pop[1, pos], get(pop, :mutation_rate)), 1
-end
-
-function setgene!(core, ::Type{Val{YChromosome}}, ::Type{Val{Male}}, ::Type{Val{Male}},
-    pop, ind, locus, prevchr)
-
-    pos = toposition(pop, ind, locus)
-    mutate!(core, pop[2, pos], get(pop, :mutation_rate)), 2
-end
 
 function evolve!(
     core::BasicData,
@@ -547,6 +525,7 @@ function evolve!(
     for gen = core
         for pop in chpops
             for sexpop in pop
+                # cdeme and csex indicate the location and sex of offspring (child).
                 cdeme = get(sexpop, :deme)
                 csex = get(sexpop, :sex)
                 # i = toposition(sexpop)
@@ -560,6 +539,13 @@ function evolve!(
                             rand() < migfit || continue
                             pdeme = 3 - cdeme
                         end
+
+                        # If cdeme == pdeme, an offspring is born in pdeme and stay there
+                        # for reproduction.
+                        # If cdeme != pdeme, an offspring is born in pdeme, and it migrates
+                        # to cdeme before reproduction.
+                        # Because all offspring are born in pdeme, it is OK to have a parent
+                        # to have offspring in both demes.
 
                         pp = parpops[pdeme]
 
