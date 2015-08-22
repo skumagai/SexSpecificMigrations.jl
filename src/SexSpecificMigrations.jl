@@ -598,7 +598,7 @@ function evolve!(
     if termon == minimum(ncoals)
         info("evolution terminated by number of turn-overs in gen ", gen, " on ", now(), ".")
     else
-        info("evolution terminated by reaching max gen", gen, " on ", now(), ".")
+        info("evolution terminated by reaching max gen ", gen, " on ", now(), ".")
     end
     parpops, core
 
